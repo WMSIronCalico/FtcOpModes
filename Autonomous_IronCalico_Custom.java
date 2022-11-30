@@ -69,8 +69,8 @@ import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 
-@Autonomous(name="IronCalico Autonomous", group="Robot")
-public class Autonomous_IronCalico extends LinearOpMode {
+@Autonomous(name="IronCalico Custom Autonomous", group="Robot")
+public class Autonomous_IronCalico_Custom extends LinearOpMode {
 
     /* Declare OpMode members. */
     private DcMotor         backLeft   = null;
@@ -102,25 +102,26 @@ public class Autonomous_IronCalico extends LinearOpMode {
      * has been downloaded to the Robot Controller's SD FLASH memory, it must to be loaded using loadModelFromFile()
      * Here we assume it's an Asset.    Also see method initTfod() below .
      */
-    private static final String TFOD_MODEL_ASSET = "PowerPlay.tflite";
+    //private static final String TFOD_MODEL_ASSET = "PowerPlay.tflite";
     
     /* Iron Calico custom model */
-    // private static final String TFOD_MODEL_FILE  = "/sdcard/FIRST/tflitemodels/model_unquant.tflite";
+    private static final String TFOD_MODEL_FILE  = "/sdcard/FIRST/tflitemodels/ic-cust-sleeve-greenCircleOnly.tflite";
     
-
+/*
     private static final String[] LABELS = {
             "1 Bolt",
             "2 Bulb",
             "3 Panel"
     };
-    
-    /* Iron Calico custom labels
-    private static final String[] LABELS = {
-        "0 GreenCircle",
-        "1 PinkEquals",
-        "2 YellowEx"
-    };
     */
+    
+    /* Iron Calico custom labels */
+    private static final String[] LABELS = {
+        "1-GreenCircle",
+        "2-PinkEquals",
+        "3-YellowEx"
+    };
+    
     
     private final double SymbolConfidence = 0.6;
     private static final String VUFORIA_KEY =
@@ -158,7 +159,7 @@ public class Autonomous_IronCalico extends LinearOpMode {
             // to artificially zoom in to the center of image.  For best results, the "aspectRatio" argument
             // should be set to the value of the images used to create the TensorFlow Object Detection model
             // (typically 16/9).
-            tfod.setZoom(1, 16.0/9.0);
+            tfod.setZoom(1.0, 16.0/9.0);
         }
 
         // Initialize the drive system variables.
@@ -194,57 +195,59 @@ public class Autonomous_IronCalico extends LinearOpMode {
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
-        while (opModeIsActive()) {
-            if (tfod != null) {
-                // getUpdatedRecognitions() will return null if no new information is available since
-                // the last time that call was made.
-                List<Recognition> updatedRecognitions = tfod.getUpdatedRecognitions();
-                if (updatedRecognitions != null) {
-                    telemetry.addData("# Objects Detected", updatedRecognitions.size());
-
-                    // step through the list of recognitions and display image position/size information for each one
-                    // Note: "Image number" refers to the randomized image orientation/number
-                    for (Recognition recognition : updatedRecognitions) {
-                        double col = (recognition.getLeft() + recognition.getRight()) / 2 ;
-                        double row = (recognition.getTop()  + recognition.getBottom()) / 2 ;
-                        double width  = Math.abs(recognition.getRight() - recognition.getLeft()) ;
-                        double height = Math.abs(recognition.getTop()  - recognition.getBottom()) ;
-
-                        telemetry.addData(""," ");
-                        telemetry.addData("Image", "%s (%.0f %% Conf.)", recognition.getLabel(), recognition.getConfidence() * 100 );
-                        telemetry.addData("- Position (Row/Col)","%.0f / %.0f", row, col);
-                        telemetry.addData("- Size (Width/Height)","%.0f / %.0f", width, height);
-                        
-                    
-                        // Iron Calico 16849
-                        // // take the symbol that has the highest confidence
-                        // drive to the cooresponding floor tile
-                            // turn if necessary
-                            // drive as far as necessary
-                        if (recognition.getConfidence() >= SymbolConfidence) {
-                            encoderDrive(DRIVE_SPEED,  30,  30, 5.0);  // S1: Forward 48 Inches with 5 Sec timeout
+        if (opModeIsActive()) {
+            while (opModeIsActive()) {
+                if (tfod != null) {
+                    // getUpdatedRecognitions() will return null if no new information is available since
+                    // the last time that call was made.
+                    List<Recognition> updatedRecognitions = tfod.getUpdatedRecognitions();
+                    if (updatedRecognitions != null) {
+                        telemetry.addData("# Objects Detected", updatedRecognitions.size());
+    
+                        // step through the list of recognitions and display image position/size information for each one
+                        // Note: "Image number" refers to the randomized image orientation/number
+                        for (Recognition recognition : updatedRecognitions) {
+                            double col = (recognition.getLeft() + recognition.getRight()) / 2 ;
+                            double row = (recognition.getTop()  + recognition.getBottom()) / 2 ;
+                            double width  = Math.abs(recognition.getRight() - recognition.getLeft()) ;
+                            double height = Math.abs(recognition.getTop()  - recognition.getBottom()) ;
+    
+                            telemetry.addData(""," ");
+                            telemetry.addData("Image", "%s (%.0f %% Conf.)", recognition.getLabel(), recognition.getConfidence() * 100 );
+                            telemetry.addData("- Position (Row/Col)","%.0f / %.0f", row, col);
+                            telemetry.addData("- Size (Width/Height)","%.0f / %.0f", width, height);
                             
-                            switch (recognition.getLabel()) {
-                                case "1 Bolt": 
-                                    /* case "0 GreenCircle": */
-                                    encoderDrive(TURN_SPEED,   15, -15, 4.0);  // S2: Turn Right 12 Inches with 4 Sec timeout
-                                    encoderDrive(DRIVE_SPEED, -27, -27, 4.0);  // S3: Reverse 24 Inches with 4 Sec timeout
-                                    break;
-                                case "2 Bulb": 
-                                    /* case "1 PinkEquals": */
-                                    // In spot, do nothing
-                                    break;
-                                case "3 Panel":
-                                    /* case "2 YellowEx": */
-                                    encoderDrive(TURN_SPEED,   15, -15, 4.0);  // S2: Turn Right 12 Inches with 4 Sec timeout
-                                    encoderDrive(DRIVE_SPEED, 24, 24, 4.0);  // S3: Forward 24 Inches with 4 Sec timeout
-                                    break;
+                        
+                            // Iron Calico 16849
+                            // // take the symbol that has the highest confidence
+                            // drive to the cooresponding floor tile
+                                // turn if necessary
+                                // drive as far as necessary
+                            if (recognition.getConfidence() >= SymbolConfidence) {
+                                encoderDrive(DRIVE_SPEED,  30,  30, 5.0);  // S1: Forward 48 Inches with 5 Sec timeout
+                                
+                                switch (recognition.getLabel()) {
+                                    //case "1 Bolt": 
+                                    case "1-GreenCircle": 
+                                        encoderDrive(TURN_SPEED,   15, -15, 4.0);  // S2: Turn Right 12 Inches with 4 Sec timeout
+                                        encoderDrive(DRIVE_SPEED, -27, -27, 4.0);  // S3: Reverse 24 Inches with 4 Sec timeout
+                                        break;
+                                   // case "2 Bulb": 
+                                    case "2-PinkEquals": 
+                                        // In spot, do nothing
+                                        break;
+                                    // case "3 Panel":
+                                    case "3-YellowEx": 
+                                        encoderDrive(TURN_SPEED,   15, -15, 4.0);  // S2: Turn Right 12 Inches with 4 Sec timeout
+                                        encoderDrive(DRIVE_SPEED, 24, 24, 4.0);  // S3: Forward 24 Inches with 4 Sec timeout
+                                        break;
+                                }
+                                return;
                             }
-                            return;
                         }
+                        telemetry.update();
+                        
                     }
-                    telemetry.update();
-                    
                 }
             }
         }
@@ -357,9 +360,9 @@ public class Autonomous_IronCalico extends LinearOpMode {
 
         // Use loadModelFromAsset() if the TF Model is built in as an asset by Android Studio
         // Use loadModelFromFile() if you have downloaded a custom team model to the Robot Controller's FLASH.
-        tfod.loadModelFromAsset(TFOD_MODEL_ASSET, LABELS);
+        // tfod.loadModelFromAsset(TFOD_MODEL_ASSET, LABELS);
         
         /* Iron Calico custom model */
-        // tfod.loadModelFromFile(TFOD_MODEL_FILE, LABELS);
+        tfod.loadModelFromFile(TFOD_MODEL_FILE, LABELS);
     }
 }

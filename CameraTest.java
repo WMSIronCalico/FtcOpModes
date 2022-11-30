@@ -13,8 +13,8 @@ import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
 import org.firstinspires.ftc.robotcore.external.tfod.Tfod;
 
 @Disabled
-@TeleOp(name = "CameraTest2 (Blocks to Java)")
-public class CameraTest2 extends LinearOpMode {
+@TeleOp(name = "CameraTest (Blocks to Java)")
+public class CameraTest extends LinearOpMode {
 
   private VuforiaCurrentGame vuforiaPOWERPLAY;
   private Tfod tfod;
@@ -57,7 +57,7 @@ public class CameraTest2 extends LinearOpMode {
     // in the Camera Stream preview window on the Driver Station.
     tfod.activate();
     // Enable following block to zoom in on target.
-    tfod.setZoom(2, 16 / 9);
+    tfod.setZoom(1, 16 / 9);
     telemetry.addData("DS preview on/off", "3 dots, Camera Stream");
     telemetry.addData(">", "Press Play to start");
     telemetry.update();

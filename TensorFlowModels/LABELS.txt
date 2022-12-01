@@ -1,0 +1,5 @@
+{
+    "1-GreenCircle",
+    "2-PinkEquals",
+    "3-YellowEx"
+}

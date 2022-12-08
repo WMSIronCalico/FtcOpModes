@@ -52,7 +52,7 @@ import com.qualcomm.robotcore.util.Range;
  * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
-
+//@Disabled
 @TeleOp(name="IronCalico Drive - Reverse Switch", group="Linear Opmode")
 public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
 
@@ -72,12 +72,12 @@ public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
      * 
      **********************************************/
     
-    private double CLAWMIN = 0.04; // Lower to close claw more
+    private double CLAWMIN = 0.02; // Lower to close claw more
                                    // .06 to .04 during tourament
     private double CLAWMAX = 0.35; // Raise to open claw more
     private double ARMSPEED = 1.0;
     private int ARMBOTTOM = 300; //0
-    private int ARMTOP = 9200; //changed from 25,000 to 6,000 after tipping over
+    private int ARMTOP = 8300; //changed from 25,000 to 6,000 after tipping over
                                // incident on 11/8/2022, need to be calibrated!!!
                                // 8400 to 9000 during tournament
                                // 9000 to 9200
@@ -110,7 +110,13 @@ public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
         
         // set up the motors for the arm
         armLift = hardwareMap.get(DcMotor.class, "armLift");
-    
+        
+        // set up servos
+        theClaw = hardwareMap.get(Servo.class, "theClaw");
+        
+        // initialize positions
+        theClaw.setPosition(CLAWMAX);
+        
         telemetry.addLine("Homing Arm");
         telemetry.update();
         
@@ -122,9 +128,9 @@ public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
         }
         
         // life arm a little before dropping to killSwitch
-        // armLift.setPower(ARMSPEED);
+        armLift.setPower(ARMSPEED);
         sleep(250);
-        // armLift.setPower(-ARMSPEED/4);
+        armLift.setPower(-ARMSPEED/4);
         while (armKillSwitch.isPressed()) {
             // loop until button is pressed
         }
@@ -136,11 +142,11 @@ public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
         armLift.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         armLift.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         
-        // set up servos
-        theClaw = hardwareMap.get(Servo.class, "theClaw");
+        theClaw.setPosition(CLAWMIN);
         
-        // initialize positions
-        theClaw.setPosition(CLAWMAX);
+        armLift.setPower(ARMSPEED);
+        sleep(500);
+        armLift.setPower(0);
         
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
@@ -153,6 +159,8 @@ public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
             double forward = -gamepad1.left_stick_y;
             double rotate = gamepad1.right_stick_x;
             double strafe = gamepad1.left_stick_x;
+            
+            double speedmod = 1.0;
 
             // Choose to drive using either Tank Mode, or POV Mode
             // Comment out the method that's not used.  The default below is POV.
@@ -174,10 +182,17 @@ public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
             // leftDrive.setPower(leftPower);
             // rightDrive.setPower(rightPower);
             
-            frontLeft.setPower(forward+rotate+strafe);
-            backLeft.setPower(forward+rotate-strafe);
-            frontRight.setPower(forward-rotate-strafe);
-            backRight.setPower(forward-rotate+strafe);
+            // speed modifier
+            if (gamepad1.left_bumper) {
+                speedmod = 0.5;
+            } else {
+                speedmod = 1.0;
+            }
+            
+            frontLeft.setPower((forward+rotate+strafe)*speedmod);
+            backLeft.setPower((forward+rotate-strafe)*speedmod);
+            frontRight.setPower((forward-rotate-strafe)*speedmod);
+            backRight.setPower((forward-rotate+strafe)*speedmod);
             
             /*
             // Reset bottom position
@@ -209,6 +224,7 @@ public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
                 armLift.setPower(0);
             }
             
+            /*
             // armLift by buttons
             // Doesn't work yet - needs run encoding
             if ( gamepad2.a ) {
@@ -216,6 +232,7 @@ public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
             } else if ( gamepad2.y ) {
                 armLift.setTargetPosition(ARMBOTTOM);
             }
+            */
             
             // Set claw by controller
             if ( gamepad2.x ) {
@@ -229,7 +246,7 @@ public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
             telemetry.addData("theClaw Pos", theClaw.getPosition());
             telemetry.addData("Arm Pos:", armLift.getCurrentPosition());
             // telemetry.addData("Motors", "left (%.2f), right (%.2f)", leftPower, rightPower);
-            telemetry.addData("armKillerSwitch", armKillSwitch.isPressed());
+            telemetry.addData("armKillerSwitch", !armKillSwitch.isPressed());
             telemetry.update();
         }
     }

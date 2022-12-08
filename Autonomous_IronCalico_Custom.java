@@ -30,6 +30,7 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -68,7 +69,7 @@ import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
  * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
-
+// @Disabled
 @Autonomous(name="IronCalico Custom Autonomous", group="Robot")
 public class Autonomous_IronCalico_Custom extends LinearOpMode {
 
@@ -77,6 +78,10 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
     private DcMotor         frontLeft   = null;
     private DcMotor         backRight  = null;
     private DcMotor         frontRight  = null;
+
+    private DcMotor armLift = null;
+    private Servo theClaw = null;
+    private TouchSensor armKillSwitch = null;
 
     private ElapsedTime     runtime = new ElapsedTime();
 
@@ -91,9 +96,13 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
     static final double     WHEEL_DIAMETER_INCHES   = 3.0 ;     // For figuring circumference
     static final double     COUNTS_PER_INCH         = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
                                                       (WHEEL_DIAMETER_INCHES * 3.1415);
-    static final double     DRIVE_SPEED             = 0.6;
-    static final double     TURN_SPEED              = 0.5;
+    static final double     DRIVE_SPEED             = 0.3;
+    static final double     TURN_SPEED              = 0.3;
 
+    private double CLAWMIN = 0.02; // Lower to close claw more
+                                   // .06 to .04 during tourament
+    private double CLAWMAX = 0.35; // Raise to open claw more
+    private double ARMSPEED = 1.0;
     
     /*
      * Specify the source for the Tensor Flow Model.
@@ -105,7 +114,7 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
     //private static final String TFOD_MODEL_ASSET = "PowerPlay.tflite";
     
     /* Iron Calico custom model */
-    private static final String TFOD_MODEL_FILE  = "/sdcard/FIRST/tflitemodels/ic-cust-sleeve-greenCircleOnly.tflite";
+    private static final String TFOD_MODEL_FILE  = "/sdcard/FIRST/tflitemodels/ic-cust-sleeve.tflite";
     
 /*
     private static final String[] LABELS = {
@@ -190,11 +199,54 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
         telemetry.addData("Starting at",  "%7d :%7d",
                           backLeft.getCurrentPosition(),
                           backRight.getCurrentPosition());
-        telemetry.update();
+        // telemetry.update();
 
+        // set up sensors
+        armKillSwitch = hardwareMap.get(TouchSensor.class, "armKillSwitch");
+        
+        // set up the motors for the arm
+        armLift = hardwareMap.get(DcMotor.class, "armLift");
+    
+        telemetry.addLine("Homing Arm");
+        telemetry.update();
+        
+        // dropping to killSwitch
+        armLift.setDirection(DcMotor.Direction.FORWARD);
+        armLift.setPower(-ARMSPEED);
+        while (armKillSwitch.isPressed()) {
+            // loop until button is pressed
+        }
+        
+        // life arm a little before dropping to killSwitch
+        armLift.setPower(ARMSPEED);
+        sleep(250);
+        armLift.setPower(-ARMSPEED/4);
+        while (armKillSwitch.isPressed()) {
+            // loop until button is pressed
+        }
+        telemetry.clearAll();
+        telemetry.update();
+        
+        armLift.setPower(0);
+        
+        armLift.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        armLift.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        
+        // set up servos
+        theClaw = hardwareMap.get(Servo.class, "theClaw");
+        
+        // initialize positions
+        theClaw.setPosition(CLAWMAX);
+        
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
+        theClaw.setPosition(CLAWMIN);
+        
+        armLift.setPower(ARMSPEED);
+        sleep(500);
+        armLift.setPower(0);
+        
         if (opModeIsActive()) {
             while (opModeIsActive()) {
                 if (tfod != null) {
@@ -225,12 +277,16 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
                                 // drive as far as necessary
                             if (recognition.getConfidence() >= SymbolConfidence) {
                                 encoderDrive(DRIVE_SPEED,  30,  30, 5.0);  // S1: Forward 48 Inches with 5 Sec timeout
+                                                                            // 2022-12-07: 30 to 35 
+                                                                            // 2022-12-08: 35 back to 30 after gearbox swap
                                 
                                 switch (recognition.getLabel()) {
                                     //case "1 Bolt": 
                                     case "1-GreenCircle": 
                                         encoderDrive(TURN_SPEED,   15, -15, 4.0);  // S2: Turn Right 12 Inches with 4 Sec timeout
                                         encoderDrive(DRIVE_SPEED, -27, -27, 4.0);  // S3: Reverse 24 Inches with 4 Sec timeout
+                                                                                   // 2022-12-07: -27 to -30, then -30 to -35
+                                                                                   // 2022-12-09: -35 to -27 after gearbox swap
                                         break;
                                    // case "2 Bulb": 
                                     case "2-PinkEquals": 
@@ -268,7 +324,6 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
         int newRightTarget;
         int newFrontLeftTarget;
         int newFrontRightTarget;
-
 
         // Ensure that the opmode is still active
         if (opModeIsActive()) {

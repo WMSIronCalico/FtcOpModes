@@ -30,6 +30,7 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -68,7 +69,7 @@ import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
  * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
-
+@Disabled
 @Autonomous(name="IronCalico Autonomous", group="Robot")
 public class Autonomous_IronCalico extends LinearOpMode {
 
@@ -78,6 +79,10 @@ public class Autonomous_IronCalico extends LinearOpMode {
     private DcMotor         backRight  = null;
     private DcMotor         frontRight  = null;
 
+    private DcMotor armLift = null;
+    private Servo theClaw = null;
+    private TouchSensor armKillSwitch = null;
+    
     private ElapsedTime     runtime = new ElapsedTime();
 
     // Calculate the COUNTS_PER_INCH for your specific drive train.
@@ -91,9 +96,13 @@ public class Autonomous_IronCalico extends LinearOpMode {
     static final double     WHEEL_DIAMETER_INCHES   = 3.0 ;     // For figuring circumference
     static final double     COUNTS_PER_INCH         = (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) /
                                                       (WHEEL_DIAMETER_INCHES * 3.1415);
-    static final double     DRIVE_SPEED             = 0.6;
-    static final double     TURN_SPEED              = 0.5;
+    static final double     DRIVE_SPEED             = 0.3;
+    static final double     TURN_SPEED              = 0.3;
 
+    private double CLAWMIN = 0.02; // Lower to close claw more
+                                   // .06 to .04 during tourament
+    private double CLAWMAX = 0.35; // Raise to open claw more
+    private double ARMSPEED = 1.0;
     
     /*
      * Specify the source for the Tensor Flow Model.
@@ -191,10 +200,54 @@ public class Autonomous_IronCalico extends LinearOpMode {
                           backRight.getCurrentPosition());
         telemetry.update();
 
+        // set up sensors
+        armKillSwitch = hardwareMap.get(TouchSensor.class, "armKillSwitch");
+        
+        // set up the motors for the arm
+        armLift = hardwareMap.get(DcMotor.class, "armLift");
+    
+        telemetry.addLine("Homing Arm");
+        telemetry.update();
+        
+        // dropping to killSwitch
+        armLift.setDirection(DcMotor.Direction.FORWARD);
+        armLift.setPower(-ARMSPEED);
+        while (armKillSwitch.isPressed()) {
+            // loop until button is pressed
+        }
+        
+        // life arm a little before dropping to killSwitch
+        armLift.setPower(ARMSPEED);
+        sleep(250);
+        armLift.setPower(-ARMSPEED/4);
+        while (armKillSwitch.isPressed()) {
+            // loop until button is pressed
+        }
+        telemetry.clearAll();
+        telemetry.update();
+        
+        armLift.setPower(0);
+        
+        armLift.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        armLift.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        
+        // set up servos
+        theClaw = hardwareMap.get(Servo.class, "theClaw");
+        
+        // initialize positions
+        theClaw.setPosition(CLAWMAX);
+        
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
+        theClaw.setPosition(CLAWMIN);
+        
+        armLift.setPower(ARMSPEED);
+        sleep(500);
+        armLift.setPower(0);
+        
         while (opModeIsActive()) {
+            
             if (tfod != null) {
                 // getUpdatedRecognitions() will return null if no new information is available since
                 // the last time that call was made.
@@ -265,7 +318,6 @@ public class Autonomous_IronCalico extends LinearOpMode {
         int newRightTarget;
         int newFrontLeftTarget;
         int newFrontRightTarget;
-
 
         // Ensure that the opmode is still active
         if (opModeIsActive()) {

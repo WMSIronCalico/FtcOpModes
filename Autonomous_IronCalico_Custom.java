@@ -241,11 +241,13 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
-        theClaw.setPosition(CLAWMIN);
-        
-        armLift.setPower(ARMSPEED);
-        sleep(500);
-        armLift.setPower(0);
+        // Close claw and lift slightly. Allows for pre-loading cone. 
+        // 2022-12-09: Disabled for tournament due to interference with recognition and driving
+
+        // theClaw.setPosition(CLAWMIN);
+        // armLift.setPower(ARMSPEED);
+        // sleep(500);
+        // armLift.setPower(0);
         
         if (opModeIsActive()) {
             while (opModeIsActive()) {

@@ -52,6 +52,10 @@ import com.qualcomm.robotcore.util.Range;
  * Use Android Studio to Copy this Class, and Paste it into your team's code folder with a new name.
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
+ 
+/* This is the version Iron Calico was using before a software update
+   reversed the behavior of the 'arm kill switch' Touch Sensor. Reversed logic
+   and started using 'Teleop_IronCalico_Reverse_Switch' */
 @Disabled
 @TeleOp(name="IronCalico Drive", group="Linear Opmode")
 public class Teleop_IronCalico extends LinearOpMode {

@@ -45,6 +45,17 @@ import org.firstinspires.ftc.robotcore.external.tfod.Recognition;
 import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
 
 /**
+ * This file was created by sample code from the following two samples:
+ *  - RobotAutoDriveByEncoder_Liner: Contains code for driving
+ *  - ConceptTensorFlowObjectDetectionWebcam: Contains code for object detection
+ *
+ * Modifications were then made by Iron Calico to improve detection rates and accuracy
+ *
+ * Note: After applying the 8.0 firmware, the Touch Sensor (armKillSwitch) behaves in reverse.
+ *       It thinks it is being pressed when it isn't, and vice versa. Logic updated accordingly.:w
+*/
+
+/**
  * This file illustrates the concept of driving a path based on encoder counts.
  * The code is structured as a LinearOpMode
  *
@@ -70,7 +81,7 @@ import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 // @Disabled
-@Autonomous(name="IronCalico Custom Autonomous", group="Robot")
+@Autonomous(name="IronCalico Custom Autonomous - Modified v2", group="Robot")
 public class Autonomous_IronCalico_Custom extends LinearOpMode {
 
     /* Declare OpMode members. */
@@ -84,7 +95,7 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
     private TouchSensor armKillSwitch = null;
 
     private ElapsedTime     runtime = new ElapsedTime();
-
+    
     // Calculate the COUNTS_PER_INCH for your specific drive train.
     // Go to your motor vendor website to determine your motor's COUNTS_PER_MOTOR_REV
     // For external drive gearing, set DRIVE_GEAR_REDUCTION as needed.
@@ -103,6 +114,9 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
                                    // .06 to .04 during tourament
     private double CLAWMAX = 0.35; // Raise to open claw more
     private double ARMSPEED = 1.0;
+
+    private String hitLabel = " ";
+    private double hitConfidence = 0.0;
     
     /*
      * Specify the source for the Tensor Flow Model.
@@ -114,15 +128,16 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
     //private static final String TFOD_MODEL_ASSET = "PowerPlay.tflite";
     
     /* Iron Calico custom model */
-    private static final String TFOD_MODEL_FILE  = "/sdcard/FIRST/tflitemodels/ic-cust-sleeve.tflite";
+    private static final String TFOD_MODEL_FILE  = "/sdcard/FIRST/tflitemodels/ic-cust-sleeve.v2.tflite";
     
-/*
+/**
+ * Default labels
     private static final String[] LABELS = {
             "1 Bolt",
             "2 Bulb",
             "3 Panel"
     };
-    */
+*/
     
     /* Iron Calico custom labels */
     private static final String[] LABELS = {
@@ -131,8 +146,6 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
         "3-YellowEx"
     };
     
-    
-    private final double SymbolConfidence = 0.6;
     private static final String VUFORIA_KEY =
         "AYN/osD/////AAABmWiRD/+5aktphViqX+mGEi4MpeVZOEPJp+a38dZIw8U5Bq7CeHg3RKJj5vK7aX7wzW3p9sKTWTjO3tr1JyYMmS8TQrG8NfzZQPc45V0Wq9ZvJ9isYdU1LPoDrxjJL4wKCA03WRD5b37eOVpkIwEtbQDZdpLRpk8yAGHkZD1j6rFD+Sy/OIwVifnhs1KBUFsGZtlJ3ZEw1xi9Nmbmg+bUH2WbH4hGCBAVF91iTYln43LXbdH1iMcIKlVDtQqrnPqQUDa8/mkcuE0ad/E5OSwq02vQgqd8Nz9Woqn4g9gImnV6tM6ujXuGRQ/VUoocNv/wnK7cYZc9JL5NjOSPi6cHUqqyoVSksqs0nU6JSEMlB9Ob";
         
@@ -199,15 +212,15 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
         telemetry.addData("Starting at",  "%7d :%7d",
                           backLeft.getCurrentPosition(),
                           backRight.getCurrentPosition());
-        // telemetry.update();
 
         // set up sensors
         armKillSwitch = hardwareMap.get(TouchSensor.class, "armKillSwitch");
+        telemetry.addData("armKillSwitch pressed?", !armKillSwitch.isPressed());
         
         // set up the motors for the arm
         armLift = hardwareMap.get(DcMotor.class, "armLift");
     
-        telemetry.addLine("Homing Arm");
+        telemetry.addLine("Homing Arm...");
         telemetry.update();
         
         // dropping to killSwitch
@@ -224,6 +237,10 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
         while (armKillSwitch.isPressed()) {
             // loop until button is pressed
         }
+
+        telemetry.addLine("...DONE");
+        telemetry.update();
+
         telemetry.clearAll();
         telemetry.update();
         
@@ -241,71 +258,117 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
         // Wait for the game to start (driver presses PLAY)
         waitForStart();
 
-        // Close claw and lift slightly. Allows for pre-loading cone. 
-        // 2022-12-09: Disabled for tournament due to interference with recognition and driving
 
-        // theClaw.setPosition(CLAWMIN);
-        // armLift.setPower(ARMSPEED);
-        // sleep(500);
-        // armLift.setPower(0);
-        
         if (opModeIsActive()) {
             while (opModeIsActive()) {
-                if (tfod != null) {
+
+                List<Recognition> updatedRecognitions;
+                telemetry.addLine("Start recognitions before moving");
+
+                // Loop through multiple zoom levels to get strongest identification. 1.0 through 2.5, incrementing by .5
+                for (double zoomFactor = 1.0; zoomFactor <= 2.5; zoomFactor += .5) {
+                    telemetry.addData("Zoom Factor", zoomFactor);
+                    tfod.setZoom(zoomFactor, 16.0/9.0);
+                    sleep(1000);
+
                     // getUpdatedRecognitions() will return null if no new information is available since
                     // the last time that call was made.
-                    List<Recognition> updatedRecognitions = tfod.getUpdatedRecognitions();
+                    updatedRecognitions = tfod.getUpdatedRecognitions();
                     if (updatedRecognitions != null) {
-                        telemetry.addData("# Objects Detected", updatedRecognitions.size());
-    
-                        // step through the list of recognitions and display image position/size information for each one
-                        // Note: "Image number" refers to the randomized image orientation/number
-                        for (Recognition recognition : updatedRecognitions) {
-                            double col = (recognition.getLeft() + recognition.getRight()) / 2 ;
-                            double row = (recognition.getTop()  + recognition.getBottom()) / 2 ;
-                            double width  = Math.abs(recognition.getRight() - recognition.getLeft()) ;
-                            double height = Math.abs(recognition.getTop()  - recognition.getBottom()) ;
-    
-                            telemetry.addData(""," ");
-                            telemetry.addData("Image", "%s (%.0f %% Conf.)", recognition.getLabel(), recognition.getConfidence() * 100 );
-                            telemetry.addData("- Position (Row/Col)","%.0f / %.0f", row, col);
-                            telemetry.addData("- Size (Width/Height)","%.0f / %.0f", width, height);
-                            
-                        
-                            // Iron Calico 16849
-                            // // take the symbol that has the highest confidence
-                            // drive to the cooresponding floor tile
-                                // turn if necessary
-                                // drive as far as necessary
-                            if (recognition.getConfidence() >= SymbolConfidence) {
-                                encoderDrive(DRIVE_SPEED,  30,  30, 5.0);  // S1: Forward 48 Inches with 5 Sec timeout
-                                                                            // 2022-12-07: 30 to 35 
-                                                                            // 2022-12-08: 35 back to 30 after gearbox swap
-                                
-                                switch (recognition.getLabel()) {
-                                    //case "1 Bolt": 
-                                    case "1-GreenCircle": 
-                                        encoderDrive(TURN_SPEED,   15, -15, 4.0);  // S2: Turn Right 12 Inches with 4 Sec timeout
-                                        encoderDrive(DRIVE_SPEED, -27, -27, 4.0);  // S3: Reverse 24 Inches with 4 Sec timeout
-                                                                                   // 2022-12-07: -27 to -30, then -30 to -35
-                                                                                   // 2022-12-09: -35 to -27 after gearbox swap
-                                        break;
-                                   // case "2 Bulb": 
-                                    case "2-PinkEquals": 
-                                        // In spot, do nothing
-                                        break;
-                                    // case "3 Panel":
-                                    case "3-YellowEx": 
-                                        encoderDrive(TURN_SPEED,   15, -15, 4.0);  // S2: Turn Right 12 Inches with 4 Sec timeout
-                                        encoderDrive(DRIVE_SPEED, 24, 24, 4.0);  // S3: Forward 24 Inches with 4 Sec timeout
-                                        break;
+
+                            telemetry.addData("# Objects Detected", updatedRecognitions.size());
+
+                            // step through the list of recognitions and capture the one with the highest confidence level
+                            for (Recognition recognition : updatedRecognitions) {
+                                double col = (recognition.getLeft() + recognition.getRight()) / 2 ;
+                                double row = (recognition.getTop()  + recognition.getBottom()) / 2 ;
+                                double width  = Math.abs(recognition.getRight() - recognition.getLeft()) ;
+                                double height = Math.abs(recognition.getTop()  - recognition.getBottom()) ;
+
+                                telemetry.addData(""," ");
+                                telemetry.addData("Detected Object", "%s (%.0f %% Conf.)", recognition.getLabel(), recognition.getConfidence() * 100 );
+                                telemetry.addData("- Position (Row/Col)","%.0f / %.0f", row, col);
+                                telemetry.addData("- Size (Width/Height)","%.0f / %.0f", width, height);
+
+                                // if higher confidence than previous recognitions, capture this recognition
+                                if (recognition.getConfidence() > hitConfidence) {
+                                    hitLabel = recognition.getLabel();
+                                    hitConfidence = recognition.getConfidence();
                                 }
-                                return;
-                            }
                         }
-                        telemetry.update();
-                        
                     }
+                }
+
+                telemetry.addData("Strongest recognition so far", "%s (%.0f %% Conf.)", hitLabel, hitConfidence * 100 );
+
+
+                // drive forward partway
+                encoderDrive(DRIVE_SPEED,  10,  10, 5.0); // forward 10 inches, 5 second timeout
+
+                telemetry.addLine("Doing another round of recognitions after moving...");
+
+                // Loop through multiple zoom levels to get strongest identification. 1.0 through 2.0, incrementing by .5
+                for (double zoomFactor = 1.0; zoomFactor <= 2.0; zoomFactor += .5) {
+                    telemetry.addData("Zoom Factor", zoomFactor);
+                    tfod.setZoom(zoomFactor, 16.0/9.0);
+                    sleep(1000);
+
+                    // getUpdatedRecognitions() will return null if no new information is available since
+                    // the last time that call was made.
+                    updatedRecognitions = tfod.getUpdatedRecognitions();
+                    if (updatedRecognitions != null) {
+
+                            telemetry.addData("# Objects Detected", updatedRecognitions.size());
+
+                            // step through teh list of recognitions and capture the one with the highest confidence level
+                            for (Recognition recognition : updatedRecognitions) {
+                                double col = (recognition.getLeft() + recognition.getRight()) / 2 ;
+                                double row = (recognition.getTop()  + recognition.getBottom()) / 2 ;
+                                double width  = Math.abs(recognition.getRight() - recognition.getLeft()) ;
+                                double height = Math.abs(recognition.getTop()  - recognition.getBottom()) ;
+
+                                telemetry.addData(""," ");
+                                telemetry.addData("Detected Object", "%s (%.0f %% Conf.)", recognition.getLabel(), recognition.getConfidence() * 100 );
+                                telemetry.addData("- Position (Row/Col)","%.0f / %.0f", row, col);
+                                telemetry.addData("- Size (Width/Height)","%.0f / %.0f", width, height);
+
+                                // if higher confidence than previous recognitions, capture this recognition
+                                if (recognition.getConfidence() > hitConfidence) {
+                                    hitLabel = recognition.getLabel();
+                                    hitConfidence = recognition.getConfidence();
+                                }
+                        }
+                    }
+                }
+
+                telemetry.addData("Strongest final recognition", "%s (%.0f %% Conf.)", hitLabel, hitConfidence * 100 );
+                        
+                // finish driving forward
+                encoderDrive(DRIVE_SPEED,  20,  20, 5.0);  // forward 20 inches, 5 second timeout
+
+                // Park accordingly based on strongest recognition.
+
+                switch (hitLabel) {
+                    case "1-GreenCircle": 
+                        encoderDrive(TURN_SPEED,   15, -15, 4.0);  // turn right 15 inches, 4 second timeout
+                        encoderDrive(DRIVE_SPEED, -27, -27, 4.0);  // reverse 27 inches, 4 second timeout
+                        break;
+                    case "2-PinkEquals": 
+                        // In spot, do nothing
+                        break;
+                    case "3-YellowEx": 
+                        encoderDrive(TURN_SPEED,   15, -15, 4.0);  // turn right 15 inches, 4 second timeout
+                        encoderDrive(DRIVE_SPEED, 24, 24, 4.0);  // forward 24 inches, 4 second timeout
+                        break;
+                    default:
+                        // no recognition hits. Stay in current position (#2) and hope for the best
+                        break;
+                }
+
+                telemetry.update();
+
+                while (opModeIsActive()) {
+                 // black hole. do nothing for remainder of OpMode, so the encompassing loop only executes once.
                 }
             }
         }
@@ -410,7 +473,7 @@ public class Autonomous_IronCalico_Custom extends LinearOpMode {
         int tfodMonitorViewId = hardwareMap.appContext.getResources().getIdentifier(
             "tfodMonitorViewId", "id", hardwareMap.appContext.getPackageName());
         TFObjectDetector.Parameters tfodParameters = new TFObjectDetector.Parameters(tfodMonitorViewId);
-        tfodParameters.minResultConfidence = 0.75f;
+        tfodParameters.minResultConfidence = 0.6f; /* Iron Calico: Reduced from .75f to .6f */
         tfodParameters.isModelTensorFlow2 = true;
         tfodParameters.inputSize = 300;
         tfod = ClassFactory.getInstance().createTFObjectDetector(tfodParameters, vuforia);

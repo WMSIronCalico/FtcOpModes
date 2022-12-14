@@ -81,7 +81,7 @@ import org.firstinspires.ftc.robotcore.external.tfod.TFObjectDetector;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 // @Disabled
-@Autonomous(name="IronCalico Custom Autonomous - Modified v2", group="Robot")
+@Autonomous(name="IronCalico Custom Autonomous", group="Robot")
 public class Autonomous_IronCalico_Custom extends LinearOpMode {
 
     /* Declare OpMode members. */

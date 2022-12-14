@@ -53,7 +53,7 @@ import com.qualcomm.robotcore.util.Range;
  * Remove or comment out the @Disabled line to add this opmode to the Driver Station OpMode list
  */
 //@Disabled
-@TeleOp(name="IronCalico Drive - Reverse Switch", group="Linear Opmode")
+@TeleOp(name="IronCalico TeleOp Drive - Reverse Switch", group="Linear Opmode")
 public class Teleop_IronCalico_Reverse_Switch extends LinearOpMode {
 
     private Blinker control_Hub;

@@ -57,7 +57,7 @@ import com.qualcomm.robotcore.util.Range;
    reversed the behavior of the 'arm kill switch' Touch Sensor. Reversed logic
    and started using 'Teleop_IronCalico_Reverse_Switch' */
 @Disabled
-@TeleOp(name="IronCalico Drive", group="Linear Opmode")
+@TeleOp(name="IronCalico TeleOp Drive", group="Linear Opmode")
 public class Teleop_IronCalico extends LinearOpMode {
 
     private Blinker control_Hub;
